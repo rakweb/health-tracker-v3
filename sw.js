@@ -1,21 +1,48 @@
-const CACHE = 'health-tracker-v3';
+// Simple offline-first service worker for Health Tracker
+const CACHE_NAME = 'health-tracker-v1';
+const CORE_ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './sw.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
+];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => {
-      return cache.addAll(['./index.html']);
-    }).then(() => self.skipWaiting())
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS))
   );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(self.clients.claim());
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(key => key !== CACHE_NAME && caches.delete(key))
+    )).then(() => self.clients.claim())
+  );
 });
 
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(resp => {
-      return resp || fetch(e.request);
-    })
-  );
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+
+  // For navigation requests, respond with cached index.html (SPA fallback)
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Cache-first for same-origin GET static assets
+  if (req.method === 'GET' && new URL(req.url).origin === location.origin) {
+    event.respondWith(
+      caches.match(req).then(cached => cached || fetch(req).then(res => {
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+        return res;
+      }))
+    );
+  }
 });
