@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Health Tracker</title>
   <meta name="description" content="Single-file health tracker — IndexedDB storage, CSV import/export, custom thresholds, dual-axis chart, dark theme" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.webmanifest">
 
   <!-- Simple inline SVG favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='%237c3aed'/><path d='M50 25 L65 40 L50 75 L35 40 Z' fill='white'/></svg>" />
@@ -79,10 +83,7 @@
       transition: all 0.15s;
       white-space: nowrap;
     }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary  { background: var(--brand);  color: white; }
     .btn-primary:hover { filter: brightness(1.1); box-shadow: var(--shadow); }
     .btn-dark     { background: #0b1020; border-color: #1e293b; color: white; }
@@ -97,19 +98,9 @@
     .dash { grid-template-columns: repeat(2, 1fr); }
     @media (min-width: 768px) { .dash { grid-template-columns: repeat(6, 1fr); } }
 
-    label {
-      display: block;
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
+    label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
 
-    input[type="text"],
-    input[type="number"],
-    input[type="date"],
-    input[type="time"],
-    select,
-    textarea {
+    input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid var(--border);
@@ -129,149 +120,37 @@
       box-shadow: var(--shadow);
     }
 
-    .metric {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-    .metric-val {
-      font-size: 1.4rem;
-      font-weight: 800;
-      letter-spacing: 0.2px;
-    }
+    .metric { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .metric-val { font-size: 1.4rem; font-weight: 800; letter-spacing: 0.2px; }
 
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      border: 1px solid var(--chip-border);
-      background: var(--chip);
-    }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; border: 1px solid var(--chip-border); background: var(--chip); }
     .pill-ok   { color: #34d399; }
     .pill-warn { color: #fbbf24; }
     .pill-bad  { color: #f87171; }
 
-    .metric-toggle {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .metric-toggle button {
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #0b1220;
-      color: var(--text);
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .metric-toggle button.active {
-      background: var(--brand);
-      color: white;
-      border-color: var(--brand);
-    }
+    .metric-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
+    .metric-toggle button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: #0b1220; color: var(--text); font-size: 0.8rem; cursor: pointer; }
+    .metric-toggle button.active { background: var(--brand); color: white; border-color: var(--brand); }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    thead th {
-      text-align: left;
-      background: #0b1020;
-      color: var(--muted);
-      padding: 10px;
-      white-space: nowrap;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 5;
-    }
-    tbody td {
-      padding: 10px;
-      border-bottom: 1px solid #192233;
-      white-space: nowrap;
-    }
-    tbody tr.flag {
-      background: #1b0e10;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    thead th { text-align: left; background: #0b1020; color: var(--muted); padding: 10px; white-space: nowrap; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+    tbody td { padding: 10px; border-bottom: 1px solid #192233; white-space: nowrap; }
+    tbody tr.flag { background: #1b0e10; }
     td.right { text-align: right; }
 
-    .modal {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: flex-end;
-      justify-content: center;
-      background: rgba(0,0,0,0.6);
-      padding: 16px;
-      z-index: 50;
-    }
+    .modal { position: fixed; inset: 0; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,0.6); padding: 16px; z-index: 50; }
     @media (min-width: 768px) { .modal { align-items: center; } }
     .modal.open { display: flex; }
-    .modal-panel {
-      width: 100%;
-      max-width: 920px;
-      max-height: 90vh;
-      overflow-y: auto;
-      background: #0b1020;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-    }
+    .modal-panel { width: 100%; max-width: 920px; max-height: 90vh; overflow-y: auto; background: #0b1020; border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
 
-    .toast {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 24px;
-      background: #0f172a;
-      color: white;
-      padding: 10px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      z-index: 60;
-      display: none;
-    }
+    .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; background: #0f172a; color: white; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); z-index: 60; display: none; }
     .toast.show { display: block; }
     .toast.error { background: #7f1d1d; }
 
-    #chartTip {
-      position: absolute;
-      pointer-events: none;
-      background: #0b1020;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 0.8rem;
-      z-index: 40;
-      display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
+    #chartTip { position: absolute; pointer-events: none; background: #0b1020; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; z-index: 40; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 
-    .loading {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg);
-      z-index: 100;
-    }
-    .loading .badge {
-      background: #0b1020;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 10px 18px;
-      border-radius: 999px;
-      box-shadow: var(--shadow);
-    }
+    .loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 100; }
+    .loading .badge { background: #0b1020; border: 1px solid var(--border); color: var(--muted); padding: 10px 18px; border-radius: 999px; box-shadow: var(--shadow); }
 
     .no-print { }
     .print-only { display: none; }
@@ -329,17 +208,13 @@
   </div>
 
   <div class="card" style="margin-bottom:16px; position:relative;">
-   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-  <div style="display:flex; align-items:center; gap:8px;">
-    <div style="font-weight:700; font-size:1.1rem;">Trend</div>
-    <!-- New compact toggle button -->
-    <button id="btnBands" class="btn btn-gray" style="padding:4px 10px; border-radius:999px; font-size:0.8rem;">
-      Bands: On
-    </button>
-  </div>
-  <div id="rangeLabel" style="font-size:0.8rem; color:var(--muted);"></div>
-</div>
-
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="font-weight:700; font-size:1.1rem;">Trend</div>
+        <button id="btnBands" class="btn btn-gray" style="padding:4px 10px; border-radius:999px; font-size:0.8rem;">Bands: On</button>
+      </div>
+      <div id="rangeLabel" style="font-size:0.8rem; color:var(--muted);"></div>
+    </div>
     <div style="position:relative;">
       <canvas id="chart" height="360"></canvas>
       <div id="chartTip"></div>
@@ -658,9 +533,6 @@ function filteredEntries() {
 }
 
 // ────────────────────────────────────────────── Init ──────────────────────────────────────────────
-
-
-
 async function init() {
   try {
     const [persistedEntries, settings] = await Promise.all([
@@ -681,67 +553,8 @@ async function init() {
     const m = settings.find(s => s.key === 'selectedMetrics')?.value;
     if (m) selectedMetrics = m;
 
-    // Load saved toggle state for bands
     const sb = settings.find(s => s.key === 'showBands')?.value;
     if (typeof sb === 'boolean') showBands = sb;
-
-  } catch (err) {
-    console.error(err);
-    showToast('Failed to load saved data', true);
-  }
-
-  // Populate emotion dropdown...
-  // [unchanged code]
-
-  // Wire buttons...
-  // [your existing button wiring remains unchanged]
-
-  $('chkBands').onchange    = async e => {
-    showBands = e.target.checked;
-    updateBandsUI();
-    renderChart();
-    await dbPut(STORE_SETTINGS, { key: 'showBands', value: showBands });
-  };
-
-  // NEW: Trend header button to toggle bands
-  const btnBands = $('btnBands');
-  if (btnBands) {
-    btnBands.onclick = toggleBands;
-  }
-
-  // keep UI consistent at startup
-  updateBandsUI();
-
-  // Auto BMI bindings...
-  // [unchanged]
-
-  renderAll();
-  $('loader').style.display = 'none';
-}
-
-
-
-
-
-async function init() {
-  try {
-    const [persistedEntries, settings] = await Promise.all([
-      dbGetAll(STORE_ENTRIES),
-      dbGetAll(STORE_SETTINGS)
-    ]);
-
-    entries = (persistedEntries || []).sort((a,b) =>
-      parseLocalDate(a.date, a.time) - parseLocalDate(b.date, b.time)
-    );
-
-    const t = settings.find(s => s.key === 'thresholds')?.value;
-    if (t) thresholds = t;
-
-    const f = settings.find(s => s.key === 'visibleFields')?.value;
-    if (f) visibleFields = f;
-
-    const m = settings.find(s => s.key === 'selectedMetrics')?.value;
-    if (m) selectedMetrics = m;
   } catch (err) {
     console.error(err);
     showToast('Failed to load saved data', true);
@@ -792,8 +605,17 @@ async function init() {
 
   $('filterStart').onchange = e => { rangeStart = e.target.value; renderAll(); };
   $('filterEnd').onchange   = e => { rangeEnd   = e.target.value; renderAll(); };
-  $('chkDualAxis').onchange = e => { dualAxis = e.target.checked; renderChart(); };
-  $('chkBands').onchange    = e => { showBands = e.target.checked; renderChart(); };
+  $('chkDualAxis').onchange = e => { dualAxis   = e.target.checked; renderChart(); };
+  $('chkBands').onchange    = async e => {
+    showBands = e.target.checked;
+    updateBandsUI();
+    renderChart();
+    await dbPut(STORE_SETTINGS, { key: 'showBands', value: showBands });
+  };
+
+  // Trend header Bands button
+  const btnBands = $('btnBands');
+  if (btnBands) btnBands.onclick = toggleBands;
 
   // Auto BMI
   ['f_weightLbs','f_heightIn'].forEach(id => {
@@ -802,15 +624,17 @@ async function init() {
     });
   });
 
+  updateBandsUI();
   renderAll();
   $('loader').style.display = 'none';
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(console.error);
+  }
 }
 
-
-
-<script>
 function updateBandsUI() {
-  // Keep the new button label and the existing checkbox in sync
   const btn = $('btnBands');
   if (btn) btn.textContent = `Bands: ${showBands ? 'On' : 'Off'}`;
   const chk = $('chkBands');
@@ -821,23 +645,8 @@ async function toggleBands() {
   showBands = !showBands;
   updateBandsUI();
   renderChart();
-  // Persist user's preference
   await dbPut(STORE_SETTINGS, { key: 'showBands', value: showBands });
 }
-
-async function loadShowBandsFromSettings() {
-  try {
-    const settings = await dbGetAll(STORE_SETTINGS);
-    const saved = settings.find(s => s.key === 'showBands')?.value;
-    if (typeof saved === 'boolean') {
-      showBands = saved;
-    }
-  } catch {}
-}
-</script>
-
-
-
 
 // ────────────────────────────────────────────── Render ──────────────────────────────────────────────
 function renderAll() {
@@ -926,8 +735,8 @@ function renderTable() {
         ${cells}
         <td class="right nowrap">
           <span class="pill ${riskClass(risk)}" style="margin-right:8px;">⚠ ${risk}</span>
-          <button class="btn btn-gray" onclick="editEntry(${JSON.stringify(entry.id)})">✎ Edit</button>
-          <button class="btn btn-rose"   style="margin-left:6px;" onclick="deleteEntry(${JSON.stringify(entry.id)})">🗑</button>
+          <button class="btn btn-gray" onclick='editEntry(${JSON.stringify(entry.id)})'>✎ Edit</button>
+          <button class="btn btn-rose"   style="margin-left:6px;" onclick='deleteEntry(${JSON.stringify(entry.id)})'>🗑</button>
         </td>
       </tr>`;
     }).join('');
@@ -961,12 +770,12 @@ function renderChart() {
 
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const w = canvas.clientWidth || canvas.parentElement.clientWidth || 800;
+  const h = canvas.clientHeight || 360;
 
   canvas.width = w * dpr;
   canvas.height = h * dpr;
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   ctx.clearRect(0, 0, w, h);
 
@@ -987,7 +796,7 @@ function renderChart() {
   const leftMetrics   = selectedMetrics.filter(k => !rightSideKeys.includes(k) || !dualAxis);
   const rightMetrics  = dualAxis ? selectedMetrics.filter(k => rightSideKeys.includes(k)) : [];
 
-  // ─── Collect values ───
+  // Collect values
   function collectValues(keys) {
     const vals = [];
     keys.forEach(k => {
@@ -1000,10 +809,7 @@ function renderChart() {
   }
 
   const leftVals  = collectValues(leftMetrics);
-  const rightVals = collectValues(rightMetrics);
-
-  const [lMin, lMax] = padRange(Math.min(...leftVals, Infinity),  Math.max(...leftVals, -Infinity));
-  const [rMin, rMax] = padRange(Math.min(...rightVals, Infinity),  Math.max(...rightVals, -Infinity));
+  the rightVals = collectValues(rightMetrics);
 
   function padRange(mi, ma) {
     if (!Number.isFinite(mi) || !Number.isFinite(ma)) return [0, 1];
@@ -1015,13 +821,16 @@ function renderChart() {
     return [mi - span * 0.08, ma + span * 0.08];
   }
 
+  const [lMin, lMax] = padRange(Math.min(...leftVals, Infinity),  Math.max(...leftVals, -Infinity));
+  const [rMin, rMax] = padRange(Math.min(...rightVals, Infinity), Math.max(...rightVals, -Infinity));
+
   const xStep = plot.w / Math.max(1, labels.length - 1);
   const xPos  = i => plot.x + i * xStep;
 
   const yLeft = v => plot.y + plot.h - ((v - lMin) / (lMax - lMin)) * plot.h;
   const yRight= v => plot.y + plot.h - ((v - rMin) / (rMax - rMin)) * plot.h;
 
-  // ─── Grid lines ───
+  // Grid lines
   ctx.strokeStyle = '#1f2937';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -1032,7 +841,7 @@ function renderChart() {
   }
   ctx.stroke();
 
-  // ─── Y-axis labels ───
+  // Y-axis labels (min/max only for compactness)
   ctx.fillStyle = '#9aa4b2';
   ctx.font = '11px system-ui';
   ctx.textAlign = 'right';
@@ -1046,7 +855,7 @@ function renderChart() {
     if (Number.isFinite(rMax)) ctx.fillText(rMax.toFixed(0), plot.x + plot.w + 8, yRight(rMax));
   }
 
-  // ─── Threshold bands ───
+  // Threshold bands (only for first metric on each side for readability)
   if (showBands) {
     function drawBand(key, isRight) {
       const th = thresholds[key];
@@ -1063,7 +872,7 @@ function renderChart() {
     if (dualAxis && rightMetrics[0]) drawBand(rightMetrics[0], true);
   }
 
-  // ─── Lines ───
+  // Lines
   function drawLine(key, isRight) {
     const metric = METRICS.find(m => m.key === key);
     const color = metric?.color || '#a3a3a3';
@@ -1076,12 +885,7 @@ function renderChart() {
       if (isNaN(v) || v === '') { started = false; continue; }
       const y = isRight ? yRight(v) : yLeft(v);
       const x = xPos(i);
-      if (!started) {
-        ctx.moveTo(x, y);
-        started = true;
-      } else {
-        ctx.lineTo(x, y);
-      }
+      if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
     }
     ctx.stroke();
   }
@@ -1089,7 +893,7 @@ function renderChart() {
   leftMetrics.forEach(k => drawLine(k, false));
   if (dualAxis) rightMetrics.forEach(k => drawLine(k, true));
 
-  // ─── X labels (first & last) ───
+  // X labels (first & last)
   ctx.fillStyle = '#9aa4b2';
   ctx.font = '11px system-ui';
   ctx.textAlign = 'center';
@@ -1101,22 +905,15 @@ function renderChart() {
     }
   }
 
-  // ─── Tooltip ───
+  // Tooltip
   const tip = $('chartTip');
-  canvas.onmouseleave = () => {
-    tip.style.display = 'none';
-    chartTipIndex = -1;
-  };
+  canvas.onmouseleave = () => { tip.style.display = 'none'; chartTipIndex = -1; };
 
   canvas.onmousemove = ev => {
     const rect = canvas.getBoundingClientRect();
     const mx = ev.clientX - rect.left;
     const idx = Math.round((mx - plot.x) / xStep);
-    if (idx < 0 || idx >= labels.length) {
-      tip.style.display = 'none';
-      chartTipIndex = -1;
-      return;
-    }
+    if (idx < 0 || idx >= labels.length) { tip.style.display = 'none'; chartTipIndex = -1; return; }
     if (chartTipIndex === idx) return;
     chartTipIndex = idx;
 
@@ -1267,8 +1064,34 @@ async function deleteEntry(id) {
   }
 }
 
-<script>
 // ────────────────────────────────────────────── Fields & Thresholds Modals ──────────────────────────────────────────────
+function openFieldsModal() {
+  const grid = $('fieldsGrid');
+  grid.innerHTML = '';
+
+  const allFields = [
+    'date','time','glucose','bodyBattery','stress','weightLbs','heightIn','waistIn','bmi',
+    'temperatureF','lungFluidCc','systolic','diastolic','spo2','heartRate','respiration',
+    'sleepHours','steps','painLevel','emotion','medications','comments'
+  ];
+
+  allFields.forEach(field => {
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" ${visibleFields.includes(field) ? 'checked' : ''} /> ${field}`;
+    const chk = lbl.firstElementChild;
+    chk.onchange = e => {
+      if (e.target.checked) {
+        if (!visibleFields.includes(field)) visibleFields.push(field);
+      } else {
+        visibleFields = visibleFields.filter(f => f !== field);
+      }
+    };
+    grid.appendChild(lbl);
+  });
+
+  openModal('fieldsModal');
+}
+
 function openThresholdsModal() {
   const grid = $('thresholdsGrid');
   grid.innerHTML = '';
@@ -1289,25 +1112,22 @@ function openThresholdsModal() {
       </div>
     `;
 
-    // IMPORTANT: query within the newly-built div (not the document) so they exist
+    // Query within div (so inputs exist), then attach listeners
     const lowInput  = div.querySelector(`#${CSS.escape(lowId)}`);
     const highInput = div.querySelector(`#${CSS.escape(highId)}`);
 
-    // Guard: if for any reason they didn't render, don't crash
     if (lowInput) {
       lowInput.oninput = e => {
         const val = Number(e.target.value);
         thresholds[m.key] = { ...(thresholds[m.key] || {}), low: val };
-        // optional live feedback:
-        renderChart();
+        renderChart(); // live update
       };
     }
     if (highInput) {
       highInput.oninput = e => {
         const val = Number(e.target.value);
         thresholds[m.key] = { ...(thresholds[m.key] || {}), high: val };
-        // optional live feedback:
-        renderChart();
+        renderChart(); // live update
       };
     }
 
@@ -1316,7 +1136,15 @@ function openThresholdsModal() {
 
   openModal('thresholdsModal');
 }
-</script>
+
+async function persistSettings() {
+  await Promise.all([
+    dbPut(STORE_SETTINGS, { key: 'thresholds',       value: thresholds    }),
+    dbPut(STORE_SETTINGS, { key: 'visibleFields',    value: visibleFields }),
+    dbPut(STORE_SETTINGS, { key: 'selectedMetrics',  value: selectedMetrics }),
+    dbPut(STORE_SETTINGS, { key: 'showBands',        value: showBands }),
+  ]);
+}
 
 // ────────────────────────────────────────────── CSV Import / Export ──────────────────────────────────────────────
 function exportCSV() {
