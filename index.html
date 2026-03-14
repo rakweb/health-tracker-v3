@@ -764,6 +764,7 @@ function updateRangeLabel() {
 // ────────────────────────────────────────────── Lightweight Chart ──────────────────────────────────────────────
 let chartTipIndex = -1;
 
+<script>
 function renderChart() {
   const canvas = $('chart');
   if (!canvas) return;
@@ -776,7 +777,6 @@ function renderChart() {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
   ctx.clearRect(0, 0, w, h);
 
   const data = filteredEntries();
@@ -809,7 +809,7 @@ function renderChart() {
   }
 
   const leftVals  = collectValues(leftMetrics);
-  the rightVals = collectValues(rightMetrics);
+  const rightVals = collectValues(rightMetrics);   // <-- fixed line
 
   function padRange(mi, ma) {
     if (!Number.isFinite(mi) || !Number.isFinite(ma)) return [0, 1];
@@ -827,8 +827,8 @@ function renderChart() {
   const xStep = plot.w / Math.max(1, labels.length - 1);
   const xPos  = i => plot.x + i * xStep;
 
-  const yLeft = v => plot.y + plot.h - ((v - lMin) / (lMax - lMin)) * plot.h;
-  const yRight= v => plot.y + plot.h - ((v - rMin) / (rMax - rMin)) * plot.h;
+  const yLeft  = v => plot.y + plot.h - ((v - lMin) / (lMax - lMin)) * plot.h;
+  const yRight = v => plot.y + plot.h - ((v - rMin) / (rMax - rMin)) * plot.h;
 
   // Grid lines
   ctx.strokeStyle = '#1f2937';
@@ -855,7 +855,7 @@ function renderChart() {
     if (Number.isFinite(rMax)) ctx.fillText(rMax.toFixed(0), plot.x + plot.w + 8, yRight(rMax));
   }
 
-  // Threshold bands (only for first metric on each side for readability)
+  // Threshold bands (only first metric each side for readability)
   if (showBands) {
     function drawBand(key, isRight) {
       const th = thresholds[key];
@@ -932,16 +932,6 @@ function renderChart() {
     tip.style.left = Math.max(8, Math.min(rect.width - 180, ev.clientX - rect.left + 14)) + 'px';
     tip.style.top  = Math.max(8, ev.clientY - rect.top - 12) + 'px';
   };
-}
-
-function hexToRgba(hex, alpha = 1) {
-  hex = hex.replace('#', '');
-  if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
-  const num = parseInt(hex, 16);
-  const r = (num >> 16) & 255;
-  const g = (num >> 8)  & 255;
-  const b = num & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ────────────────────────────────────────────── Entry Modal ──────────────────────────────────────────────
