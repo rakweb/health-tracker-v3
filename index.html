@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Health Tracker</title>
+  <meta name="description" content="Single-file health tracker — IndexedDB storage, CSV import/export, custom thresholds, dual-axis chart, dark theme" />
+
+  <!-- Simple inline SVG favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='%237c3aed'/><path d='M50 25 L65 40 L50 75 L35 40 Z' fill='white'/></svg>" />
+
+  <style>
+    :root {
+      --bg:        #0b1220;
+      --panel:      #111827;
+      --border:     #263244;
+      --text:       #e5e7eb;
+      --muted:      #9aa4b2;
+      --brand:      #7c3aed;
+      --ok:         #10b981;
+      --warn:       #f59e0b;
+      --danger:     #ef4444;
+      --chip:       #1f2937;
+      --chip-border:#334155;
+      --shadow:     0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, Noto Sans, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      background: rgba(11,18,32,0.75);
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary  { background: var(--brand);  color: white; }
+    .btn-primary:hover { filter: brightness(1.1); box-shadow: var(--shadow); }
+    .btn-dark     { background: #0b1020; border-color: #1e293b; color: white; }
+    .btn-emerald  { background: #059669; color: white; }
+    .btn-rose     { background: #dc2626; color: white; }
+    .btn-gray     { background: #1f2937; color: var(--text); border: 1px solid #334155; }
+
+    .grid { display: grid; gap: 12px; }
+    .filters { grid-template-columns: 1fr; }
+    @media (min-width: 768px) { .filters { grid-template-columns: repeat(4, 1fr); } }
+
+    .dash { grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 768px) { .dash { grid-template-columns: repeat(6, 1fr); } }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0f172a;
+      color: var(--text);
+      font: inherit;
+    }
+    input[type="number"] { text-align: right; }
+    textarea { min-height: 64px; resize: vertical; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .metric-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border: 1px solid var(--chip-border);
+      background: var(--chip);
+    }
+    .pill-ok   { color: #34d399; }
+    .pill-warn { color: #fbbf24; }
+    .pill-bad  { color: #f87171; }
+
+    .metric-toggle {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .metric-toggle button {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .metric-toggle button.active {
+      background: var(--brand);
+      color: white;
+      border-color: var(--brand);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    thead th {
+      text-align: left;
+      background: #0b1020;
+      color: var(--muted);
+      padding: 10px;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    tbody td {
+      padding: 10px;
+      border-bottom: 1px solid #192233;
+      white-space: nowrap;
+    }
+    tbody tr.flag {
+      background: #1b0e10;
+    }
+    td.right { text-align: right; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      padding: 16px;
+      z-index: 50;
+    }
+    @media (min-width: 768px) { .modal { align-items: center; } }
+    .modal.open { display: flex; }
+    .modal-panel {
+      width: 100%;
+      max-width: 920px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #0b1020;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 24px;
+      background: #0f172a;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      z-index: 60;
+      display: none;
+    }
+    .toast.show { display: block; }
+    .toast.error { background: #7f1d1d; }
+
+    #chartTip {
+      position: absolute;
+      pointer-events: none;
+      background: #0b1020;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      z-index: 40;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .loading .badge {
+      background: #0b1020;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 10px 18px;
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+    }
+
+    .no-print { }
+    .print-only { display: none; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white; color: black; }
+      .card { box-shadow: none; border: 1px solid #ddd; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loader" class="loading no-print">
+  <div class="badge">Loading…</div>
+</div>
+
+<header class="no-print">
+  <div class="container">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
+      <h1>Health Tracker</h1>
+      <div class="actions">
+        <button id="btnAdd"     class="btn btn-primary">＋ Add Entry</button>
+        <button id="btnImport"  class="btn btn-dark">⭳ Import CSV</button>
+        <input id="fileInput" type="file" accept=".csv,text/csv" hidden />
+        <button id="btnExportCSV" class="btn btn-emerald">⭱ Export CSV</button>
+        <button id="btnPDF"       class="btn btn-rose">🖨 PDF / Print</button>
+        <button id="btnFields"    class="btn btn-gray">⚙ Fields</button>
+        <button id="btnThresholds" class="btn btn-gray">🛠 Thresholds</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="card grid filters no-print" style="margin:16px 0;">
+    <div><label>Start Date</label><input id="filterStart" type="date" /></div>
+    <div><label>End Date</label><input id="filterEnd"   type="date" /></div>
+    <div style="display:flex; gap:8px; align-items:center; padding-top:22px;">
+      <input id="chkDualAxis" type="checkbox" checked />
+      <label for="chkDualAxis" class="nowrap">Dual Y-Axis</label>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; padding-top:22px;">
+      <input id="chkBands" type="checkbox" checked />
+      <label for="chkBands" class="nowrap">Threshold Bands</label>
+    </div>
+  </div>
+
+  <div id="dash" class="grid dash"></div>
+
+  <div class="card no-print" style="margin:16px 0;">
+    <div style="font-weight:700; font-size:1rem; margin-bottom:10px;">Chart Metrics</div>
+    <div id="metricButtons" class="metric-toggle"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px; position:relative;">
+   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div style="font-weight:700; font-size:1.1rem;">Trend</div>
+    <!-- New compact toggle button -->
+    <button id="btnBands" class="btn btn-gray" style="padding:4px 10px; border-radius:999px; font-size:0.8rem;">
+      Bands: On
+    </button>
+  </div>
+  <div id="rangeLabel" style="font-size:0.8rem; color:var(--muted);"></div>
+</div>
+
+    <div style="position:relative;">
+      <canvas id="chart" height="360"></canvas>
+      <div id="chartTip"></div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto;">
+    <table id="table"></table>
+  </div>
+
+  <!-- Print-only version -->
+  <section class="print-only" style="margin-top:2cm;">
+    <h2 style="font-size:18px; margin:0 0 8px 0;">Health Tracker — Export Summary</h2>
+    <div id="printRange" style="font-size:12px; color:#555; margin-bottom:12px;"></div>
+    <table id="printTable" style="border:1px solid #ccc; width:100%;"></table>
+  </section>
+
+</main>
+
+<!-- ────────────────────────────────────────────── Modals ────────────────────────────────────────────── -->
+
+<div id="entryModal" class="modal">
+  <div class="modal-panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h2 id="entryTitle" style="margin:0; font-size:1.2rem;">Add Entry</h2>
+      <button class="btn btn-gray" onclick="closeModal('entryModal')">✕</button>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div><label>Date</label>           <input id="f_date"          type="date" required /></div>
+      <div><label>Time</label>           <input id="f_time"          type="time" /></div>
+      <div><label>Glucose (mg/dL)</label><input id="f_glucose"       type="number" step="any" /></div>
+      <div><label>Body Battery</label>   <input id="f_bodyBattery"   type="number" step="any" /></div>
+      <div><label>Stress</label>         <input id="f_stress"        type="number" step="any" /></div>
+      <div><label>Weight (lbs)</label>   <input id="f_weightLbs"     type="number" step="any" /></div>
+      <div><label>Height (in)</label>    <input id="f_heightIn"      type="number" step="any" /></div>
+      <div><label>Waist (in)</label>     <input id="f_waistIn"       type="number" step="any" /></div>
+      <div><label>BMI (auto)</label>     <input id="f_bmi"           type="text" readonly /></div>
+      <div><label>Temp (°F)</label>      <input id="f_temperatureF"  type="number" step="any" /></div>
+      <div><label>Lung Fluid (cc)</label><input id="f_lungFluidCc"   type="number" step="any" /></div>
+      <div><label>Systolic</label>       <input id="f_systolic"      type="number" step="any" /></div>
+      <div><label>Diastolic</label>      <input id="f_diastolic"     type="number" step="any" /></div>
+      <div><label>SpO₂ (%)</label>       <input id="f_spo2"          type="number" step="any" min="0" max="100" /></div>
+      <div><label>Heart Rate (bpm)</label><input id="f_heartRate"    type="number" step="any" /></div>
+      <div><label>Respiration (rpm)</label><input id="f_respiration" type="number" step="any" /></div>
+      <div><label>Sleep (hrs)</label>    <input id="f_sleepHours"    type="number" step="0.1" /></div>
+      <div><label>Steps</label>          <input id="f_steps"         type="number" step="1" /></div>
+      <div><label>Pain Level (0–10)</label><input id="f_painLevel"   type="number" min="0" max="10" step="1" /></div>
+      <div><label>Emotion</label>
+        <select id="f_emotion"></select>
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>Medications</label>
+        <input id="f_medications" type="text" placeholder="e.g. Metformin 500mg AM; Lisinopril 10mg PM" />
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>Comments</label>
+        <textarea id="f_comments"></textarea>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; text-align:right; display:flex; gap:12px; justify-content:flex-end;">
+      <button class="btn btn-gray" onclick="closeModal('entryModal')">Cancel</button>
+      <button id="btnSaveEntry" class="btn btn-primary">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fields Modal -->
+<div id="fieldsModal" class="modal">
+  <div class="modal-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="margin:0; font-size:1.2rem;">Visible Fields (Table & Export)</h2>
+      <button class="btn btn-gray" onclick="closeModal('fieldsModal')">✕</button>
+    </div>
+    <div id="fieldsGrid" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));"></div>
+    <div style="margin-top:20px; text-align:right;">
+      <button id="btnFieldsReset" class="btn btn-gray">Reset to Default</button>
+      <button id="btnFieldsSave"   class="btn btn-emerald" style="margin-left:12px;">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Thresholds Modal -->
+<div id="thresholdsModal" class="modal">
+  <div class="modal-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="margin:0; font-size:1.2rem;">Thresholds per Metric</h2>
+      <button class="btn btn-gray" onclick="closeModal('thresholdsModal')">✕</button>
+    </div>
+    <div id="thresholdsGrid" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));"></div>
+    <div style="margin-top:20px; text-align:right;">
+      <button id="btnThresholdsReset" class="btn btn-gray">Reset to Default</button>
+      <button id="btnThresholdsSave"   class="btn btn-primary" style="margin-left:12px;">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ────────────────────────────────────────────── Utilities ──────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function showToast(msg, error = false) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (error ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2400);
+}
+
+function openModal(id)  { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+
+function computeBMI(lbs, inches) {
+  if (!lbs || !inches) return '';
+  const bmi = (703 * Number(lbs)) / (Number(inches) ** 2);
+  return Number.isFinite(bmi) ? bmi.toFixed(1) : '';
+}
+
+function csvEscape(val) {
+  if (val == null) return '';
+  const s = String(val);
+  return /[\",]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+
+function buildCSV(rows, headers) {
+  return [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => csvEscape(r[h] ?? '')).join(','))
+  ].join('\n');
+}
+
+// Very basic CSV parser – enough for most use cases
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuote) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (c === '"')                 { inQuote = false; }
+      else                                { field += c; }
+    } else {
+      if (c === '"')                      { inQuote = true; }
+      else if (c === ',')                 { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (field || row.length) {
+          row.push(field);
+          rows.push(row);
+          row = []; field = '';
+        }
+        if (c === '\r' && text[i+1] === '\n') i++;
+      } else {
+        field += c;
+      }
+    }
+  }
+  if (field || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ────────────────────────────────────────────── Constants & Config ──────────────────────────────────────────────
+const DB_NAME = 'health-tracker-db';
+const DB_VERSION = 1;
+const STORE_ENTRIES  = 'entries';
+const STORE_SETTINGS = 'settings';
+
+const METRICS = [
+  { key:'glucose',       label:'Glucose (mg/dL)',     color:'#7c3aed' },
+  { key:'bodyBattery',   label:'Body Battery',        color:'#14b8a6' },
+  { key:'stress',        label:'Stress',              color:'#f59e0b' },
+  { key:'weightLbs',     label:'Weight (lbs)',        color:'#8b5cf6' },
+  { key:'heightIn',      label:'Height (in)',         color:'#06b6d4' },
+  { key:'waistIn',       label:'Waist (in)',          color:'#f472b6' },
+  { key:'bmi',           label:'BMI',                 color:'#ef4444' },
+  { key:'temperatureF',  label:'Temp (°F)',           color:'#0ea5e9' },
+  { key:'lungFluidCc',   label:'Lung Fluid (cc)',     color:'#22c55e' },
+  { key:'systolic',      label:'Systolic',            color:'#dc2626' },
+  { key:'diastolic',     label:'Diastolic',           color:'#f97316' },
+  { key:'spo2',          label:'SpO₂ (%)',            color:'#60a5fa' },
+  { key:'heartRate',     label:'Heart Rate (bpm)',    color:'#fb7185' },
+  { key:'respiration',   label:'Respiration (rpm)',   color:'#a855f7' },
+  { key:'sleepHours',    label:'Sleep (hrs)',         color:'#16a34a' },
+  { key:'steps',         label:'Steps',               color:'#64748b' },
+  { key:'painLevel',     label:'Pain (0-10)',         color:'#ef4444' },
+];
+
+const DEFAULT_THRESHOLDS = {
+  glucose:      {low: 70,   high: 180},
+  bodyBattery:  {low: 25,   high: 75},
+  stress:       {low: 0,    high: 60},
+  weightLbs:    {low: 0,    high: 999},
+  heightIn:     {low: 0,    high: 120},
+  waistIn:      {low: 0,    high: 60},
+  bmi:          {low: 18.5, high: 24.9},
+  temperatureF: {low: 97.5, high: 99.5},
+  lungFluidCc:  {low: 0,    high: 200},
+  systolic:     {low: 90,   high: 120},
+  diastolic:    {low: 60,   high: 80},
+  spo2:         {low: 95,   high: 100},
+  heartRate:    {low: 50,   high: 100},
+  respiration:  {low: 12,   high: 20},
+  sleepHours:   {low: 7,    high: 9},
+  steps:        {low: 8000, high: 12000},
+  painLevel:    {low: 0,    high: 3},
+};
+
+const DEFAULT_VISIBLE_FIELDS = [
+  'date','time','glucose','systolic','diastolic','spo2','heartRate',
+  'temperatureF','weightLbs','bmi','sleepHours','steps','medications','comments'
+];
+
+const EMOTIONS = ['Calm','Content','Happy','Neutral','Anxious','Sad','Irritable','Stressed'];
+
+// ────────────────────────────────────────────── IndexedDB ──────────────────────────────────────────────
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_ENTRIES)) {
+        db.createObjectStore(STORE_ENTRIES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
+        db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function dbPut(store, value) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const st = tx.objectStore(store);
+    const r = st.put(value);
+    r.onsuccess = () => res(true);
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+async function dbGetAll(store) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const st = tx.objectStore(store);
+    const r = st.getAll();
+    r.onsuccess = () => res(r.result ?? []);
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+async function dbDelete(store, key) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const st = tx.objectStore(store);
+    const r = st.delete(key);
+    r.onsuccess = () => res(true);
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ────────────────────────────────────────────── State ──────────────────────────────────────────────
+let entries        = [];
+let editing        = null;
+let thresholds     = structuredClone(DEFAULT_THRESHOLDS);
+let visibleFields  = [...DEFAULT_VISIBLE_FIELDS];
+let selectedMetrics = ['glucose','systolic','diastolic','spo2','heartRate'];
+let rangeStart     = '';
+let rangeEnd       = '';
+let dualAxis       = true;
+let showBands      = true;
+
+// ────────────────────────────────────────────── Core Functions ──────────────────────────────────────────────
+function isOutOfRange(key, value, thresholds) {
+  if (value === '' || value == null) return false;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return false;
+  const th = thresholds[key];
+  if (!th) return false;
+  return n < th.low || n > th.high;
+}
+
+function parseLocalDate(dateStr, timeStr = '00:00') {
+  const [y, m, d] = (dateStr || '').split('-').map(Number);
+  const [h, min] = (timeStr || '00:00').split(':').map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date(NaN);
+  return new Date(y, m - 1, d, isNaN(h) ? 0 : h, isNaN(min) ? 0 : min);
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = parseLocalDate(d);
+  if (isNaN(dt.getTime())) return d;
+  return dt.toLocaleDateString('en-CA'); // YYYY-MM-DD local
+}
+
+function filteredEntries() {
+  let list = [...entries];
+  if (rangeStart) {
+    const s = parseLocalDate(rangeStart);
+    list = list.filter(e => parseLocalDate(e.date) >= s);
+  }
+  if (rangeEnd) {
+    const en = parseLocalDate(rangeEnd);
+    list = list.filter(e => parseLocalDate(e.date) <= en);
+  }
+  return list;
+}
+
+// ────────────────────────────────────────────── Init ──────────────────────────────────────────────
+
+
+
+async function init() {
+  try {
+    const [persistedEntries, settings] = await Promise.all([
+      dbGetAll(STORE_ENTRIES),
+      dbGetAll(STORE_SETTINGS)
+    ]);
+
+    entries = (persistedEntries || []).sort((a,b) =>
+      parseLocalDate(a.date, a.time) - parseLocalDate(b.date, b.time)
+    );
+
+    const t = settings.find(s => s.key === 'thresholds')?.value;
+    if (t) thresholds = t;
+
+    const f = settings.find(s => s.key === 'visibleFields')?.value;
+    if (f) visibleFields = f;
+
+    const m = settings.find(s => s.key === 'selectedMetrics')?.value;
+    if (m) selectedMetrics = m;
+
+    // Load saved toggle state for bands
+    const sb = settings.find(s => s.key === 'showBands')?.value;
+    if (typeof sb === 'boolean') showBands = sb;
+
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to load saved data', true);
+  }
+
+  // Populate emotion dropdown...
+  // [unchanged code]
+
+  // Wire buttons...
+  // [your existing button wiring remains unchanged]
+
+  $('chkBands').onchange    = async e => {
+    showBands = e.target.checked;
+    updateBandsUI();
+    renderChart();
+    await dbPut(STORE_SETTINGS, { key: 'showBands', value: showBands });
+  };
+
+  // NEW: Trend header button to toggle bands
+  const btnBands = $('btnBands');
+  if (btnBands) {
+    btnBands.onclick = toggleBands;
+  }
+
+  // keep UI consistent at startup
+  updateBandsUI();
+
+  // Auto BMI bindings...
+  // [unchanged]
+
+  renderAll();
+  $('loader').style.display = 'none';
+}
+
+
+
+
+
+async function init() {
+  try {
+    const [persistedEntries, settings] = await Promise.all([
+      dbGetAll(STORE_ENTRIES),
+      dbGetAll(STORE_SETTINGS)
+    ]);
+
+    entries = (persistedEntries || []).sort((a,b) =>
+      parseLocalDate(a.date, a.time) - parseLocalDate(b.date, b.time)
+    );
+
+    const t = settings.find(s => s.key === 'thresholds')?.value;
+    if (t) thresholds = t;
+
+    const f = settings.find(s => s.key === 'visibleFields')?.value;
+    if (f) visibleFields = f;
+
+    const m = settings.find(s => s.key === 'selectedMetrics')?.value;
+    if (m) selectedMetrics = m;
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to load saved data', true);
+  }
+
+  // Populate emotion dropdown
+  const emo = $('f_emotion');
+  EMOTIONS.forEach(x => {
+    const o = document.createElement('option');
+    o.value = o.textContent = x;
+    emo.appendChild(o);
+  });
+  emo.value = 'Neutral';
+
+  // Wire buttons
+  $('btnAdd').onclick        = openAddModal;
+  $('btnSaveEntry').onclick  = saveEntry;
+  $('btnExportCSV').onclick  = exportCSV;
+  $('btnPDF').onclick        = () => window.print();
+  $('btnImport').onclick     = () => $('fileInput').click();
+  $('fileInput').onchange    = e => importCSV(e.target.files?.[0]);
+
+  $('btnFields').onclick     = openFieldsModal;
+  $('btnFieldsReset').onclick = () => {
+    visibleFields = [...DEFAULT_VISIBLE_FIELDS];
+    persistSettings();
+    renderAll();
+    showToast('Fields reset');
+  };
+  $('btnFieldsSave').onclick = () => {
+    persistSettings();
+    closeModal('fieldsModal');
+    showToast('Fields saved');
+  };
+
+  $('btnThresholds').onclick = openThresholdsModal;
+  $('btnThresholdsReset').onclick = () => {
+    thresholds = structuredClone(DEFAULT_THRESHOLDS);
+    persistSettings();
+    renderAll();
+    showToast('Thresholds reset');
+  };
+  $('btnThresholdsSave').onclick = () => {
+    persistSettings();
+    closeModal('thresholdsModal');
+    showToast('Thresholds saved');
+  };
+
+  $('filterStart').onchange = e => { rangeStart = e.target.value; renderAll(); };
+  $('filterEnd').onchange   = e => { rangeEnd   = e.target.value; renderAll(); };
+  $('chkDualAxis').onchange = e => { dualAxis = e.target.checked; renderChart(); };
+  $('chkBands').onchange    = e => { showBands = e.target.checked; renderChart(); };
+
+  // Auto BMI
+  ['f_weightLbs','f_heightIn'].forEach(id => {
+    $(id).addEventListener('input', () => {
+      $('f_bmi').value = computeBMI($('f_weightLbs').value, $('f_heightIn').value);
+    });
+  });
+
+  renderAll();
+  $('loader').style.display = 'none';
+}
+
+
+
+<script>
+function updateBandsUI() {
+  // Keep the new button label and the existing checkbox in sync
+  const btn = $('btnBands');
+  if (btn) btn.textContent = `Bands: ${showBands ? 'On' : 'Off'}`;
+  const chk = $('chkBands');
+  if (chk) chk.checked = showBands;
+}
+
+async function toggleBands() {
+  showBands = !showBands;
+  updateBandsUI();
+  renderChart();
+  // Persist user's preference
+  await dbPut(STORE_SETTINGS, { key: 'showBands', value: showBands });
+}
+
+async function loadShowBandsFromSettings() {
+  try {
+    const settings = await dbGetAll(STORE_SETTINGS);
+    const saved = settings.find(s => s.key === 'showBands')?.value;
+    if (typeof saved === 'boolean') {
+      showBands = saved;
+    }
+  } catch {}
+}
+</script>
+
+
+
+
+// ────────────────────────────────────────────── Render ──────────────────────────────────────────────
+function renderAll() {
+  renderDashboard();
+  renderMetricButtons();
+  renderTable();
+  renderPrintTable();
+  renderChart();
+  updateRangeLabel();
+}
+
+function renderDashboard() {
+  const dash = $('dash');
+  dash.innerHTML = '';
+  const keys = ['glucose','systolic','diastolic','spo2','heartRate','temperatureF'];
+  const latest = filteredEntries().at(-1);
+
+  keys.forEach(k => {
+    const m = METRICS.find(x => x.key === k);
+    const val = latest?.[k];
+    const outOfRange = latest && isOutOfRange(k, val, thresholds);
+    const risk = latest ? countRisks(latest) : 0;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (outOfRange) card.style.borderColor = '#7f1d1d';
+
+    card.innerHTML = `
+      <div class="metric">${m?.label || k}</div>
+      <div class="metric-val">${val ?? '—'}</div>
+      ${latest ? `<div class="pill ${riskClass(risk)}" style="margin-top:8px;">Risk ${risk}</div>` : ''}
+    `;
+    dash.appendChild(card);
+  });
+}
+
+function countRisks(entry) {
+  return METRICS.reduce((c, m) => c + (isOutOfRange(m.key, entry[m.key], thresholds) ? 1 : 0), 0);
+}
+
+function riskClass(n) {
+  if (n === 0) return 'pill-ok';
+  if (n <= 2)  return 'pill-warn';
+  return 'pill-bad';
+}
+
+function renderMetricButtons() {
+  const container = $('metricButtons');
+  container.innerHTML = '';
+  METRICS.forEach(m => {
+    const btn = document.createElement('button');
+    btn.textContent = m.label;
+    btn.className = selectedMetrics.includes(m.key) ? 'active' : '';
+    btn.onclick = () => {
+      const i = selectedMetrics.indexOf(m.key);
+      if (i >= 0) selectedMetrics.splice(i, 1);
+      else        selectedMetrics.push(m.key);
+      persistSettings();
+      renderChart();
+      btn.classList.toggle('active');
+    };
+    container.appendChild(btn);
+  });
+}
+
+function renderTable() {
+  const headers = ['date','time', ...visibleFields.filter(f => !['date','time'].includes(f))];
+  const data    = filteredEntries();
+
+  const thead = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}<th>Actions</th></tr></thead>`;
+
+  let rows = '';
+  if (data.length === 0) {
+    rows = `<tr><td colspan="${headers.length+1}" style="text-align:center;padding:32px 16px;color:var(--muted);">
+      No entries yet. Click <b>Add Entry</b> to begin.
+    </td></tr>`;
+  } else {
+    rows = data.map(entry => {
+      const risk = countRisks(entry);
+      const cells = headers.map(h => {
+        const val = h === 'date' ? fmtDate(entry[h]) : (entry[h] ?? '');
+        const isBad = isOutOfRange(h, entry[h], thresholds);
+        return `<td${isBad ? ' style="color:#f87171;font-weight:700;"' : ''}>${val}</td>`;
+      }).join('');
+      return `<tr class="${risk > 0 ? 'flag' : ''}">
+        ${cells}
+        <td class="right nowrap">
+          <span class="pill ${riskClass(risk)}" style="margin-right:8px;">⚠ ${risk}</span>
+          <button class="btn btn-gray" onclick="editEntry(${JSON.stringify(entry.id)})">✎ Edit</button>
+          <button class="btn btn-rose"   style="margin-left:6px;" onclick="deleteEntry(${JSON.stringify(entry.id)})">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  $('table').innerHTML = thead + `<tbody>${rows}</tbody>`;
+}
+
+function renderPrintTable() {
+  const headers = ['date','time', ...visibleFields.filter(f => !['date','time'].includes(f))];
+  const data    = filteredEntries();
+
+  const thead = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`;
+  const rows  = data.map(e => `<tr>${headers.map(h => `<td>${h==='date' ? fmtDate(e[h]) : (e[h]??'')}</td>`).join('')}</tr>`).join('');
+
+  $('printTable').innerHTML = thead + `<tbody>${rows}</tbody>`;
+}
+
+function updateRangeLabel() {
+  const txt = `${rangeStart || '—'} → ${rangeEnd || '—'}`;
+  $('rangeLabel').textContent = txt;
+  $('printRange').textContent = `Date Range: ${txt}`;
+}
+
+// ────────────────────────────────────────────── Lightweight Chart ──────────────────────────────────────────────
+let chartTipIndex = -1;
+
+function renderChart() {
+  const canvas = $('chart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, w, h);
+
+  const data = filteredEntries();
+  if (data.length === 0) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '14px system-ui';
+    ctx.fillText('Add entries to see chart', 40, 60);
+    return;
+  }
+
+  const pad = { top: 20, right: dualAxis ? 60 : 48, bottom: 36, left: 48 };
+  const plot = { x: pad.left, y: pad.top, w: w - pad.left - pad.right, h: h - pad.top - pad.bottom };
+
+  const labels = data.map(e => `${fmtDate(e.date)} ${e.time||''}`.trim());
+
+  const rightSideKeys = ['steps','sleepHours','bodyBattery'];
+  const leftMetrics   = selectedMetrics.filter(k => !rightSideKeys.includes(k) || !dualAxis);
+  const rightMetrics  = dualAxis ? selectedMetrics.filter(k => rightSideKeys.includes(k)) : [];
+
+  // ─── Collect values ───
+  function collectValues(keys) {
+    const vals = [];
+    keys.forEach(k => {
+      data.forEach(e => {
+        const v = e[k];
+        if (v !== '' && v != null && Number.isFinite(Number(v))) vals.push(Number(v));
+      });
+    });
+    return vals;
+  }
+
+  const leftVals  = collectValues(leftMetrics);
+  const rightVals = collectValues(rightMetrics);
+
+  const [lMin, lMax] = padRange(Math.min(...leftVals, Infinity),  Math.max(...leftVals, -Infinity));
+  const [rMin, rMax] = padRange(Math.min(...rightVals, Infinity),  Math.max(...rightVals, -Infinity));
+
+  function padRange(mi, ma) {
+    if (!Number.isFinite(mi) || !Number.isFinite(ma)) return [0, 1];
+    if (mi === ma) {
+      const d = Math.abs(mi || 1) * 0.12 + 0.5;
+      return [mi - d, ma + d];
+    }
+    const span = ma - mi;
+    return [mi - span * 0.08, ma + span * 0.08];
+  }
+
+  const xStep = plot.w / Math.max(1, labels.length - 1);
+  const xPos  = i => plot.x + i * xStep;
+
+  const yLeft = v => plot.y + plot.h - ((v - lMin) / (lMax - lMin)) * plot.h;
+  const yRight= v => plot.y + plot.h - ((v - rMin) / (rMax - rMin)) * plot.h;
+
+  // ─── Grid lines ───
+  ctx.strokeStyle = '#1f2937';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= 6; i++) {
+    const y = plot.y + (i / 6) * plot.h;
+    ctx.moveTo(plot.x, y);
+    ctx.lineTo(plot.x + plot.w, y);
+  }
+  ctx.stroke();
+
+  // ─── Y-axis labels ───
+  ctx.fillStyle = '#9aa4b2';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  if (Number.isFinite(lMin)) ctx.fillText(lMin.toFixed(0), plot.x - 8, yLeft(lMin));
+  if (Number.isFinite(lMax)) ctx.fillText(lMax.toFixed(0), plot.x - 8, yLeft(lMax));
+
+  if (dualAxis && rightMetrics.length) {
+    ctx.textAlign = 'left';
+    if (Number.isFinite(rMin)) ctx.fillText(rMin.toFixed(0), plot.x + plot.w + 8, yRight(rMin));
+    if (Number.isFinite(rMax)) ctx.fillText(rMax.toFixed(0), plot.x + plot.w + 8, yRight(rMax));
+  }
+
+  // ─── Threshold bands ───
+  if (showBands) {
+    function drawBand(key, isRight) {
+      const th = thresholds[key];
+      if (!th) return;
+      const c = METRICS.find(m => m.key === key)?.color || '#6366f1';
+      ctx.fillStyle = hexToRgba(c, 0.12);
+      const yHigh = isRight ? yRight(th.high) : yLeft(th.high);
+      const yLow  = isRight ? yRight(th.low)  : yLeft(th.low);
+      const top = Math.min(yHigh, yLow);
+      const height = Math.abs(yHigh - yLow);
+      ctx.fillRect(plot.x, top, plot.w, height);
+    }
+    if (leftMetrics[0])  drawBand(leftMetrics[0], false);
+    if (dualAxis && rightMetrics[0]) drawBand(rightMetrics[0], true);
+  }
+
+  // ─── Lines ───
+  function drawLine(key, isRight) {
+    const metric = METRICS.find(m => m.key === key);
+    const color = metric?.color || '#a3a3a3';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < data.length; i++) {
+      const v = Number(data[i][key]);
+      if (isNaN(v) || v === '') { started = false; continue; }
+      const y = isRight ? yRight(v) : yLeft(v);
+      const x = xPos(i);
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  leftMetrics.forEach(k => drawLine(k, false));
+  if (dualAxis) rightMetrics.forEach(k => drawLine(k, true));
+
+  // ─── X labels (first & last) ───
+  ctx.fillStyle = '#9aa4b2';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  if (labels.length) {
+    ctx.fillText(labels[0], plot.x, plot.y + plot.h + 12);
+    if (labels.length > 1) {
+      ctx.fillText(labels[labels.length-1], plot.x + plot.w, plot.y + plot.h + 12);
+    }
+  }
+
+  // ─── Tooltip ───
+  const tip = $('chartTip');
+  canvas.onmouseleave = () => {
+    tip.style.display = 'none';
+    chartTipIndex = -1;
+  };
+
+  canvas.onmousemove = ev => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = ev.clientX - rect.left;
+    const idx = Math.round((mx - plot.x) / xStep);
+    if (idx < 0 || idx >= labels.length) {
+      tip.style.display = 'none';
+      chartTipIndex = -1;
+      return;
+    }
+    if (chartTipIndex === idx) return;
+    chartTipIndex = idx;
+
+    const entry = data[idx];
+    const lines = [labels[idx]];
+    selectedMetrics.forEach(k => {
+      const v = entry[k];
+      if (v != null && v !== '') {
+        const lbl = METRICS.find(m => m.key === k)?.label || k;
+        lines.push(`${lbl}: ${v}`);
+      }
+    });
+
+    tip.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+    tip.style.display = 'block';
+    tip.style.left = Math.max(8, Math.min(rect.width - 180, ev.clientX - rect.left + 14)) + 'px';
+    tip.style.top  = Math.max(8, ev.clientY - rect.top - 12) + 'px';
+  };
+}
+
+function hexToRgba(hex, alpha = 1) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+  const num = parseInt(hex, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8)  & 255;
+  const b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ────────────────────────────────────────────── Entry Modal ──────────────────────────────────────────────
+function openAddModal() {
+  editing = null;
+  $('entryTitle').textContent = 'Add Entry';
+
+  const now = new Date();
+  setFormFields({
+    date: now.toLocaleDateString('en-CA'),
+    time: now.toTimeString().slice(0,5),
+    glucose: '', bodyBattery: '', stress: '', weightLbs: '', heightIn: '', waistIn: '', bmi: '',
+    temperatureF: '', lungFluidCc: '', systolic: '', diastolic: '', spo2: '', heartRate: '',
+    respiration: '', sleepHours: '', steps: '', painLevel: '', emotion: 'Neutral',
+    medications: '', comments: ''
+  });
+
+  openModal('entryModal');
+}
+
+function editEntry(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  editing = entry;
+  $('entryTitle').textContent = 'Edit Entry';
+  setFormFields(entry);
+  openModal('entryModal');
+}
+
+function setFormFields(obj) {
+  $('f_date').value         = obj.date         || '';
+  $('f_time').value         = obj.time         || '';
+  $('f_glucose').value      = obj.glucose      ?? '';
+  $('f_bodyBattery').value  = obj.bodyBattery  ?? '';
+  $('f_stress').value       = obj.stress       ?? '';
+  $('f_weightLbs').value    = obj.weightLbs    ?? '';
+  $('f_heightIn').value     = obj.heightIn     ?? '';
+  $('f_waistIn').value      = obj.waistIn      ?? '';
+  $('f_bmi').value          = obj.bmi          ?? '';
+  $('f_temperatureF').value = obj.temperatureF ?? '';
+  $('f_lungFluidCc').value  = obj.lungFluidCc  ?? '';
+  $('f_systolic').value     = obj.systolic     ?? '';
+  $('f_diastolic').value    = obj.diastolic    ?? '';
+  $('f_spo2').value         = obj.spo2         ?? '';
+  $('f_heartRate').value    = obj.heartRate    ?? '';
+  $('f_respiration').value  = obj.respiration  ?? '';
+  $('f_sleepHours').value   = obj.sleepHours   ?? '';
+  $('f_steps').value        = obj.steps        ?? '';
+  $('f_painLevel').value    = obj.painLevel    ?? '';
+  $('f_emotion').value      = obj.emotion      || 'Neutral';
+  $('f_medications').value  = obj.medications  ?? '';
+  $('f_comments').value     = obj.comments     ?? '';
+}
+
+async function saveEntry() {
+  const formData = {
+    id: editing?.id ?? Date.now(),
+    date:         $('f_date').value,
+    time:         $('f_time').value,
+    glucose:      $('f_glucose').value,
+    bodyBattery:  $('f_bodyBattery').value,
+    stress:       $('f_stress').value,
+    weightLbs:    $('f_weightLbs').value,
+    heightIn:     $('f_heightIn').value,
+    waistIn:      $('f_waistIn').value,
+    bmi:          $('f_bmi').value,
+    temperatureF: $('f_temperatureF').value,
+    lungFluidCc:  $('f_lungFluidCc').value,
+    systolic:     $('f_systolic').value,
+    diastolic:    $('f_diastolic').value,
+    spo2:         $('f_spo2').value,
+    heartRate:    $('f_heartRate').value,
+    respiration:  $('f_respiration').value,
+    sleepHours:   $('f_sleepHours').value,
+    steps:        $('f_steps').value,
+    painLevel:    $('f_painLevel').value,
+    emotion:      $('f_emotion').value,
+    medications:  $('f_medications').value,
+    comments:     $('f_comments').value,
+  };
+
+  // Normalize numbers
+  METRICS.forEach(m => {
+    const v = formData[m.key];
+    if (v !== '' && v != null) {
+      const n = Number(v);
+      if (Number.isFinite(n)) formData[m.key] = n;
+    }
+  });
+
+  try {
+    const idx = entries.findIndex(e => e.id === formData.id);
+    if (idx >= 0) entries[idx] = formData;
+    else          entries.push(formData);
+
+    entries.sort((a,b) =>
+      parseLocalDate(a.date, a.time) - parseLocalDate(b.date, b.time)
+    );
+
+    await dbPut(STORE_ENTRIES, formData);
+    closeModal('entryModal');
+    renderAll();
+    showToast('Entry saved');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to save entry', true);
+  }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  try {
+    await dbDelete(STORE_ENTRIES, id);
+    entries = entries.filter(e => e.id !== id);
+    renderAll();
+    showToast('Entry deleted');
+  } catch (err) {
+    console.error(err);
+    showToast('Delete failed', true);
+  }
+}
+
+<script>
+// ────────────────────────────────────────────── Fields & Thresholds Modals ──────────────────────────────────────────────
+function openThresholdsModal() {
+  const grid = $('thresholdsGrid');
+  grid.innerHTML = '';
+
+  METRICS.forEach(m => {
+    const lowId  = `tl_${m.key}`;
+    const highId = `th_${m.key}`;
+
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <div style="font-weight:700; margin-bottom:8px;">${m.label}</div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <label style="width:48px; color:var(--muted);">Low</label>
+        <input type="number" id="${lowId}"  value="${thresholds[m.key]?.low  ?? ''}" style="width:90px;" />
+        <label style="width:48px; color:var(--muted);">High</label>
+        <input type="number" id="${highId}" value="${thresholds[m.key]?.high ?? ''}" style="width:90px;" />
+      </div>
+    `;
+
+    // IMPORTANT: query within the newly-built div (not the document) so they exist
+    const lowInput  = div.querySelector(`#${CSS.escape(lowId)}`);
+    const highInput = div.querySelector(`#${CSS.escape(highId)}`);
+
+    // Guard: if for any reason they didn't render, don't crash
+    if (lowInput) {
+      lowInput.oninput = e => {
+        const val = Number(e.target.value);
+        thresholds[m.key] = { ...(thresholds[m.key] || {}), low: val };
+        // optional live feedback:
+        renderChart();
+      };
+    }
+    if (highInput) {
+      highInput.oninput = e => {
+        const val = Number(e.target.value);
+        thresholds[m.key] = { ...(thresholds[m.key] || {}), high: val };
+        // optional live feedback:
+        renderChart();
+      };
+    }
+
+    grid.appendChild(div);
+  });
+
+  openModal('thresholdsModal');
+}
+</script>
+
+// ────────────────────────────────────────────── CSV Import / Export ──────────────────────────────────────────────
+function exportCSV() {
+  try {
+    const data = filteredEntries();
+    const headers = ['date','time', ...visibleFields.filter(f => !['date','time'].includes(f))];
+    const csv = buildCSV(data, headers);
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Health_Tracker_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('CSV exported');
+  } catch (err) {
+    console.error(err);
+    showToast('Export failed', true);
+  }
+}
+
+function importCSV(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const text = String(reader.result || '');
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error('No data rows found');
+
+      const headers = rows[0].map(h => h.trim());
+      if (!headers.includes('date') || !headers.includes('time')) {
+        throw new Error("CSV must contain 'date' and 'time' columns");
+      }
+
+      const known = new Set([
+        'date','time','glucose','bodyBattery','stress','weightLbs','heightIn','waistIn','bmi',
+        'temperatureF','lungFluidCc','systolic','diastolic','spo2','heartRate','respiration',
+        'sleepHours','steps','painLevel','emotion','medications','comments'
+      ]);
+
+      const mapping = headers.map(h => known.has(h) ? h : null);
+
+      const imported = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || row.every(v => v === '')) continue;
+
+        const obj = { id: Date.now() + i };
+        headers.forEach((h, idx) => {
+          const key = mapping[idx];
+          if (key) obj[key] = row[idx];
+        });
+
+        obj.bmi = computeBMI(obj.weightLbs, obj.heightIn);
+
+        METRICS.forEach(m => {
+          const v = obj[m.key];
+          if (v !== undefined && v !== '' && v != null) {
+            const n = Number(v);
+            if (Number.isFinite(n)) obj[m.key] = n;
+          }
+        });
+
+        imported.push(obj);
+      }
+
+      for (const e of imported) await dbPut(STORE_ENTRIES, e);
+
+      entries = [...entries, ...imported].sort((a,b) =>
+        parseLocalDate(a.date, a.time) - parseLocalDate(b.date, b.time)
+      );
+
+      renderAll();
+      showToast(`Imported ${imported.length} row${imported.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Import failed: ${err.message}`, true);
+    }
+  };
+  reader.onerror = () => showToast('Failed to read file', true);
+  reader.readAsText(file);
+}
+
+// ────────────────────────────────────────────── Start ──────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
