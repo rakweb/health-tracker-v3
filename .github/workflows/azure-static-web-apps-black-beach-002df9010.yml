@@ -2,10 +2,10 @@ name: Deploy to Azure Static Web Apps
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
 
 jobs:
   build_and_deploy_job:
@@ -24,6 +24,6 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/"           # Important: files are in root
-          output_location: ""         # No build output folder
-          # api_location: ""          # No API
+          app_location: "/"              # ← Files are in root
+          output_location: ""            # ← No build output (important!)
+          skip_app_build: true           # ← This skips npm/react build
